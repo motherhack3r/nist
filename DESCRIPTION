@@ -15,4 +15,6 @@ Imports:
     rvest,
     tidyr,
     utils,
-    xml2
+    xml2,
+    dplyr,
+    stringr
