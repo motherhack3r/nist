@@ -225,14 +225,51 @@ cpeNERannotate <- function(cpes = cpes_etl(),
     df_ner <- df_ner[which(grepl(pattern = ".*\\]\\(vendor\\).*\\]\\(product\\).*\\]\\(version\\)", df_ner$annotated)), ]
 
   } else if (vendor & product & !version) {
+    # Keep only titles with vendor and product entities
+    df_ner <- dplyr::select(dplyr::filter(df_ner, train_v & train_p),
+                            -"train_v", -"train_p", -"train_r")
+    # remove titles with equal vendor and product
+    df_ner <- df_ner[which(df_ner$vendor != df_ner$product), ]
+
+    # Add tags
+    df_ner$annotated <- df_ner$title
+    df_ner$annotated <- stringr::str_replace_all(string = df_ner$annotated,
+                                                 pattern = paste0("(", df_ner$vendor,")(\\s.*)(", df_ner$product,")(.*)"),
+                                                 replacement = "\\[\\1\\]\\(vendor\\)\\2\\[\\3\\]\\(product\\)\\4")
+
+    df_ner <- df_ner[which(grepl(pattern = ".*\\]\\(vendor\\).*\\]\\(product\\).*", df_ner$annotated)), ]
 
   } else if (vendor & !product & !version) {
+    # Keep only titles with vendor entity
+    df_ner <- dplyr::select(dplyr::filter(df_ner, train_v),
+                            -"train_v", -"train_p", -"train_r")
+
+    # Add tags
+    df_ner$annotated <- df_ner$title
+    df_ner$annotated <- stringr::str_replace_all(string = df_ner$annotated,
+                                                 pattern = paste0("(", df_ner$vendor,")(.*)"),
+                                                 replacement = "\\[\\1\\]\\(vendor\\)\\2")
+
+    df_ner <- df_ner[which(grepl(pattern = ".*\\]\\(vendor\\).*", df_ner$annotated)), ]
 
   } else if (!vendor & product & !version) {
+    # Keep only titles with product entity
+    df_ner <- dplyr::select(dplyr::filter(df_ner, train_p),
+                            -"train_v", -"train_p", -"train_r")
+
+    # Add tags
+    df_ner$annotated <- df_ner$title
+    df_ner$annotated <- stringr::str_replace_all(string = df_ner$annotated,
+                                                 pattern = paste0("(", df_ner$product,")(.*)"),
+                                                 replacement = "\\[\\1\\]\\(product\\)\\2")
+
+    df_ner <- df_ner[which(grepl(pattern = ".*\\]\\(product\\).*", df_ner$annotated)), ]
 
   } else {
 
   }
+
+  df_ner <- dplyr::select(df_ner, "title", "cpe", "vendor", "product", "version", "annotated")
 
   return(df_ner)
 }
