@@ -1,4 +1,11 @@
 library(nist)
+library(dplyr)
+
+seed <- 42
+num_top <- 200
+num_samples <- 20000
+
+set.seed(seed)
 
 # Download latest official CPE dataset
 tini <- Sys.time()
@@ -10,8 +17,11 @@ print(paste0("[", fini,"] done in ", round(fini - tini, 2), "s"))
 tini <- Sys.time()
 print(paste0("[", tini,"] Parse XML "))
 df_cpes <- parseCPExml(cpes_file)
+saveRDS(df_cpes, "data-raw/df_cpes.rds")
 fini <- Sys.time()
 print(paste0("[", fini,"] done in ", round(fini - tini, 2), "s"))
+
+df_cpes <- readRDS("data-raw/df_cpes.rds")
 
 tini <- Sys.time()
 print(paste0("[", tini,"] Expanse with CPE components "))
@@ -43,34 +53,77 @@ df_cpe_tag_prod <- cpeNERannotate(cpes = df_cpes_ner, vendor = FALSE, version = 
 fini <- Sys.time()
 print(paste0("[", fini,"] done in ", round(fini - tini, 2), "s"))
 
+topvends <- getTopVendors(df_cpes_ner, num_top)
+topprods <- getTopProducts(df_cpes_ner, num_top)
 
 
-library(dplyr)
 
-ents_vendor <- df_cpes_ner %>%
-  select(cpe, vendor, product) %>%
-  # group_by(vendor, product) %>%
-  group_by(vendor) %>%
-  summarise(num_rows = n(), .groups = "keep") %>%
-  arrange(desc(num_rows)) %>%
-  ungroup()
-
-ents_product <- df_cpes_ner %>%
-  select(cpe, vendor, product) %>%
-  # group_by(vendor, product) %>%
-  group_by(product) %>%
-  summarise(num_rows = n(), .groups = "keep") %>%
-  arrange(desc(num_rows)) %>%
-  ungroup()
-
-
-df_train_vend <- df_cpe_tag_vend[df_cpe_tag_vend$vendor %in% head(ents_vendor$vendor, 1000), ] %>%
-  sample_n(10000)
+df_train_vend <- df_cpe_tag_vend %>%
+  arrange(title) %>%
+  inner_join(topvends, by = "vendor", keep = FALSE) %>%
+  arrange(title) %>%
+  slice_sample(n = num_samples) %>%
+  select("title", "annotated")
 write.csv(df_train_vend, "data-raw/train_vendors.csv", row.names = FALSE)
 
-df_train_prod <- df_cpe_tag_prod[df_cpe_tag_prod$product %in% head(ents_product$product, 1000), ] %>%
-  sample_n(10000)
+df_train_prod <- df_cpe_tag_prod %>%
+  arrange(title) %>%
+  inner_join(topprods, by = "product", keep = FALSE) %>%
+  arrange(title) %>%
+  slice_sample(n = num_samples) %>%
+  select("title", "annotated")
 write.csv(df_train_prod, "data-raw/train_products.csv", row.names = FALSE)
+
+
+
+
+
+# df_train_vend <- df_cpe_tag_vend[df_cpe_tag_vend$vendor %in% head(ents_vendor$vendor, 1000), ] %>%
+#   sample_n(10000)
+# write.csv(df_train_vend, "data-raw/train_vendors.csv", row.names = FALSE)
+#
+# df_train_prod <- df_cpe_tag_prod[df_cpe_tag_prod$product %in% head(ents_product$product, 1000), ] %>%
+#   sample_n(10000)
+# write.csv(df_train_prod, "data-raw/train_products.csv", row.names = FALSE)
+
+
+
+# ents_vp <- df_cpes_ner %>%
+#   select(cpe, vendor, product) %>%
+#   group_by(vendor, product) %>%
+#   summarise(num_rows = n(), .groups = "keep") %>%
+#   arrange(desc(num_rows)) %>%
+#   ungroup()
+#
+# ents_vendor <- df_cpes_ner %>%
+#   select(cpe, vendor, product) %>%
+#   group_by(vendor) %>%
+#   summarise(num_rows = n(), .groups = "keep") %>%
+#   arrange(desc(num_rows)) %>%
+#   ungroup()
+#
+# ents_product <- df_cpes_ner %>%
+#   select(cpe, vendor, product) %>%
+#   group_by(product) %>%
+#   summarise(num_rows = n(), .groups = "keep") %>%
+#   arrange(desc(num_rows)) %>%
+#   ungroup()
+#
+# ents_vend <- ents_vp %>%
+#   select(vendor, product) %>%
+#   group_by(vendor) %>%
+#   summarise(num_rows = n(), .groups = "keep") %>%
+#   arrange(desc(num_rows)) %>%
+#   ungroup()
+#
+# ents_prod <- ents_vp %>%
+#   select(vendor, product) %>%
+#   group_by(product) %>%
+#   summarise(num_rows = n(), .groups = "keep") %>%
+#   arrange(desc(num_rows)) %>%
+#   ungroup()
+
+
 
 # tini <- Sys.time()
 # print(paste0("[", tini,"] START "))

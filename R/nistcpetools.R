@@ -186,6 +186,7 @@ cpes_etl <- function(xml_path = getLatestdata(), map = wfn.charmap()) {
 #'
 #' @return data.frame
 #' @export
+#' @importFrom rlang .data
 cpeNERannotate <- function(cpes = cpes_etl(),
                            vendor = TRUE, product = TRUE, version = TRUE) {
   # part is not included in title
@@ -273,3 +274,81 @@ cpeNERannotate <- function(cpes = cpes_etl(),
 
   return(df_ner)
 }
+
+
+#' Title
+#'
+#' @param df_cpes_ner data.frame
+#' @param num_top numeric
+#'
+#' @return data.frame
+#' @export
+#' @importFrom rlang .data
+getTopVendors <- function(df_cpes_ner = cpe2wfn(), num_top = 100) {
+  ents_vp <- df_cpes_ner %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor, .data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_vend <- ents_vp %>%
+    dplyr::select("vendor", "product") %>%
+    dplyr::group_by(.data$vendor) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_vendor <- df_cpes_ner %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  sample_vend <- ents_vend %>%
+    dplyr::bind_rows(ents_vendor) %>%
+    dplyr::group_by(.data$vendor) %>%
+    dplyr::summarise(num_rows = sum(.data$num_rows), .groups = "keep") %>%
+    dplyr::ungroup() %>%
+    dplyr::slice_sample(n = num_top, weight_by = .data$num_rows) %>%
+    dplyr::select("vendor")
+
+  return(sample_vend)
+}
+
+#' Title
+#'
+#' @param df_cpes_ner data.frame
+#' @param num_top numeric
+#'
+#' @return data.frame
+#' @export
+#' @importFrom rlang .data
+getTopProducts <- function(df_cpes_ner = cpe2wfn(), num_top = 100) {
+  ents_vp <- df_cpes_ner %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor, .data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_prod <- ents_vp %>%
+    dplyr::select("vendor", "product") %>%
+    dplyr::group_by(.data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_product <- df_cpes_ner %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  sample_prod <- ents_prod %>%
+    dplyr::bind_rows(ents_product) %>%
+    dplyr::group_by(.data$product) %>%
+    dplyr::summarise(num_rows = sum(.data$num_rows), .groups = "keep") %>%
+    dplyr::ungroup() %>%
+    dplyr::slice_sample(n = num_top, weight_by = .data$num_rows) %>%
+    dplyr::select("product")
+
+  return(sample_prod)
+}
+
