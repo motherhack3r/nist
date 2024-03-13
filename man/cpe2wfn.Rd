@@ -4,7 +4,7 @@
 \alias{cpe2wfn}
 \title{Title}
 \usage{
-cpe2wfn(df_cpes = parseCPExml(), map = wfn.charmap())
+cpe2wfn(df_cpes = parseCPExml(), map = wfn_charmap())
 }
 \arguments{
 \item{df_cpes}{data.frame}

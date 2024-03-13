@@ -4,10 +4,10 @@
 \alias{getTopProducts}
 \title{Title}
 \usage{
-getTopProducts(df_cpes_ner = cpe2wfn(), num_top = 100)
+getTopProducts(df_cpes = cpe2wfn(), num_top = 100)
 }
 \arguments{
-\item{df_cpes_ner}{data.frame}
+\item{df_cpes}{data.frame}
 
 \item{num_top}{numeric}
 }

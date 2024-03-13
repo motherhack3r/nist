@@ -2,7 +2,7 @@ library(nist)
 library(dplyr)
 
 seed <- 42
-num_top <- 200
+num_top <- 2000
 num_samples <- 20000
 
 set.seed(seed)
@@ -56,7 +56,74 @@ print(paste0("[", fini,"] done in ", round(fini - tini, 2), "s"))
 topvends <- getTopVendors(df_cpes_ner, num_top)
 topprods <- getTopProducts(df_cpes_ner, num_top)
 
+allvends <- getTopVendors(df_cpes_ner, 0)
+allprods <- getTopProducts(df_cpes_ner, 0)
 
+# VPV
+allvpv <- df_cpe_tag_vpv %>%
+  inner_join(allvends, by = "vendor", keep = FALSE) %>%
+  inner_join(allprods, by = "product", keep = FALSE) %>%
+  select("cpe", "vendor", "product") %>%
+  group_by(vendor, product) %>%
+  summarise(num_rows = n(), .groups = "keep") %>%
+  ungroup()
+if (num_top > 0) {
+  allvpv <- allvpv %>%
+    slice_max(num_rows, n = num_top)
+}
+df_train <- df_cpe_tag_vpv %>%
+  inner_join(allvpv, by = join_by(vendor, product)) %>%
+  mutate(num_rows = round(abs(scale(num_rows)[,1]), 4)) %>%
+  slice_sample(n = num_samples) %>%
+  slice_sample(n = num_samples, weight_by = num_rows)
+
+
+# VEND
+print(paste0("[VEND] Add NER annotation and select sample"))
+allvend <- df_cpe_tag_vend %>%
+  inner_join(allvends, by = "vendor", keep = FALSE) %>%
+  select("cpe", "vendor") %>%
+  group_by(vendor) %>%
+  summarise(num_rows = n(), .groups = "keep") %>%
+  ungroup()
+if (num_top > 0) {
+  allvend <- allvend %>%
+    slice_max(num_rows, n = num_top)
+}
+df_train <- df_cpe_tag_vend %>%
+  inner_join(allvend, by = join_by(vendor)) %>%
+  mutate(num_rows = round(abs(scale(num_rows)[, 1]), 4)) %>%
+  slice_sample(n = num_samples, weight_by = num_rows)
+
+
+
+# VPV
+df_train <- df_cpe_tag_vpv %>%
+  inner_join(allvends, by = "vendor", keep = FALSE) %>%
+  inner_join(allprods, by = "product", keep = FALSE) %>%
+  select("cpe", "vendor", "product") %>%
+  group_by(vendor, product) %>%
+  summarise(num_rows = n(), .groups = "keep") %>%
+  ungroup()
+if (num_top > 0) {
+  df_train <- df_train %>%
+    slice_sample(n = num_top, weight_by = num_rows)
+}
+df_train <- df_train %>%
+  left_join(distinct(df_cpe_tag_vpv, vendor, product, .keep_all = TRUE),
+            by = join_by(vendor, product))
+
+
+
+df_train <- df_cpe_tag_vp %>%
+  inner_join(allvends, by = "vendor", keep = FALSE) %>%
+  inner_join(allprods, by = "product", keep = FALSE) %>%
+  select("cpe", "vendor", "product") %>%
+  group_by(vendor, product) %>%
+  summarise(num_rows = n(), .groups = "keep") %>%
+  ungroup() %>%
+  slice_sample(n = num_top, weight_by = num_rows) %>%
+  left_join(distinct(df_cpe_tag_vp, vendor, product, .keep_all = T), by = join_by(vendor, product))
 
 df_train_vend <- df_cpe_tag_vend %>%
   arrange(title) %>%
