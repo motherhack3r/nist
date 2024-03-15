@@ -135,6 +135,7 @@ cpe2wfn <- function(df_cpes = parseCPExml(), map = wfn_charmap()) {
   df_cpes <- as.data.frame(sapply(df_cpes, function(x) wfn_decode(x)))
 
   df_cpes <- df_cpes[which(stringr::str_count(df_cpes$title, "\\?") <= 1), ]
+  df_cpes$title <- stringr::str_squish(df_cpes$title)
 
   return(df_cpes)
 }
@@ -376,7 +377,7 @@ getCPEsample <- function(df = cpe2wfn(), num_samples = 5000, randomize = FALSE) 
     df_sample <- df_sample %>% dplyr::slice_sample(n = num_samples, weight_by = .data$num_rows)
   }
   df_train <- df %>%
-    dplyr::inner_join(df_sample, by = dplyr::join_by(.data$vendor, .data$product)) %>%
+    dplyr::inner_join(df_sample, by = dplyr::join_by("vendor", "product")) %>%
     dplyr::slice_sample(n = num_samples) %>%
     dplyr::select(-"num_rows")
 

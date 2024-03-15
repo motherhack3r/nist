@@ -26,8 +26,11 @@ df_cpes <- readRDS("data-raw/df_cpes.rds")
 tini <- Sys.time()
 print(paste0("[", tini,"] Expanse with CPE components "))
 df_cpes_ner <- cpe2wfn(df_cpes)
+saveRDS(df_cpes_ner, "data-raw/df_cpes_ner.rds")
 fini <- Sys.time()
 print(paste0("[", fini,"] done in ", round(fini - tini, 2), "s"))
+
+df_cpes_ner <- readRDS("data-raw/df_cpes_ner.rds")
 
 tini <- Sys.time()
 print(paste0("[", tini,"] Add NER annotation (VPV)"))
