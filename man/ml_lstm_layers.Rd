@@ -12,7 +12,8 @@ ml_lstm_layers(
   num_encoder_tokens = 0,
   num_decoder_tokens = 0,
   max_encoder_seq_length = 0,
-  max_decoder_seq_length = 0
+  max_decoder_seq_length = 0,
+  latent_dim = 128
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ ml_lstm_layers(
 \item{max_encoder_seq_length}{numeric}
 
 \item{max_decoder_seq_length}{numeric}
+
+\item{latent_dim}{numeric}
 }
 \value{
 list

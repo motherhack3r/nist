@@ -19,4 +19,7 @@ Imports:
     dplyr,
     stringr,
     magrittr,
-    rlang
+    rlang,
+    entity,
+    keras,
+    OpenRepGrid

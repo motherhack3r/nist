@@ -29,9 +29,9 @@ ml_lstm_tokenize <- function(text,
                              output = c("wfn","cpe","txt")[sample.int(3,1)]) {
   ## Vectorization of the data.
   input_texts  <- text[[1]]
-  input_texts  <- dplyr::lapply(input_texts, function(s) strsplit(s, split = "")[[1]])
+  input_texts  <- lapply(input_texts, function(s) strsplit(s, split = "")[[1]])
   target_texts <- paste0('\t',text[[2]],'\n')
-  target_texts <- dplyr::lapply(target_texts, function(s) strsplit(s, split = "")[[1]])
+  target_texts <- lapply(target_texts, function(s) strsplit(s, split = "")[[1]])
 
   if (input == "wfn") {
     input_characters  <- getWFNchars()
@@ -85,17 +85,19 @@ ml_lstm_tokenize <- function(text,
 #' @param num_decoder_tokens numeric
 #' @param max_encoder_seq_length numeric
 #' @param max_decoder_seq_length numeric
+#' @param latent_dim numeric
 #'
 #' @return list
 #' @export
 ml_lstm_layers <- function(input_texts = "",
                            target_texts = "",
-                           input_characters= "",
-                           target_characters= "",
-                           num_encoder_tokens= 0,
-                           num_decoder_tokens= 0,
-                           max_encoder_seq_length= 0,
-                           max_decoder_seq_length= 0) {
+                           input_characters = "",
+                           target_characters = "",
+                           num_encoder_tokens = 0,
+                           num_decoder_tokens = 0,
+                           max_encoder_seq_length = 0,
+                           max_decoder_seq_length = 0,
+                           latent_dim = 128) {
 
   input_token_index  <- 1:length(input_characters)
   names(input_token_index) <- input_characters
