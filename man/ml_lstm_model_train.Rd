@@ -14,7 +14,7 @@ ml_lstm_model_train(
   optimizer = "rmsprop",
   loss = "categorical_crossentropy",
   batch_size = 32,
-  epochs = 100,
+  epochs = 10,
   validation_split = 0.2,
   save_path = "models",
   model_name = make.names(paste(gsub("\\\\.", "", OpenRepGrid::randomWords(3)), collapse
