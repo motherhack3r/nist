@@ -288,6 +288,19 @@ cpeNERannotate <- function(cpes = cpes_etl(),
 
     df_ner <- df_ner[which(grepl(pattern = ".*\\]\\(product\\).*", df_ner$annotated)), ]
 
+  } else if (!vendor & !product & version) {
+    # Keep only titles with product entity
+    df_ner <- dplyr::select(dplyr::filter(df_ner, .data$train_r),
+                            -"train_v", -"train_p", -"train_r")
+
+    # Add tags
+    df_ner$annotated <- df_ner$title
+    df_ner$annotated <- stringr::str_replace_all(string = df_ner$annotated,
+                                                 pattern = paste0("(", df_ner$version,")(.*)"),
+                                                 replacement = "\\[\\1\\]\\(version\\)\\2")
+
+    df_ner <- df_ner[which(grepl(pattern = ".*\\]\\(version\\).*", df_ner$annotated)), ]
+
   } else {
 
   }
