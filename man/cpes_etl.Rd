@@ -4,7 +4,7 @@
 \alias{cpes_etl}
 \title{Title}
 \usage{
-cpes_etl(xml_path = getLatestdata(), map = wfn.charmap())
+cpes_etl(xml_path = getLatestdata(), map = wfn_charmap())
 }
 \arguments{
 \item{xml_path}{character}

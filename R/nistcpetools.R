@@ -24,7 +24,7 @@ getLatestdata <- function(datapath = "data-raw") {
 #' @param key character
 #'
 #' @return character
-wfn.charmap <- function(key = NA) {
+wfn_charmap <- function(key = NA) {
   lcharmap <- rbind(c('%21','!'),
                     c('%22', '\"'),
                     c('%23', '#'),
@@ -74,7 +74,7 @@ wfn.charmap <- function(key = NA) {
 wfn_encode <- function(x = character()) {
   # convert to ASCII with transliteration
   x <- iconv(x, to = "ASCII//TRANSLIT")
-  map <- wfn.charmap()
+  map <- wfn_charmap()
   for (encoded_char in names(map)) {
     x <- gsub(paste0("\\", map[encoded_char]), encoded_char, x, fixed = T)
   }
@@ -89,7 +89,7 @@ wfn_encode <- function(x = character()) {
 wfn_decode <- function(x = character()) {
   # convert to ASCII with transliteration
   x <- iconv(x, to = "ASCII//TRANSLIT")
-  map <- wfn.charmap()
+  map <- wfn_charmap()
   for (encoded_char in names(map)) {
     x <- gsub(encoded_char, paste0("\\", map[encoded_char]), x, fixed = T)
   }
@@ -106,10 +106,7 @@ parseCPExml <- function(xml_path = getLatestdata()) {
   df_cpes <- plyr::ldply(
     xml2::as_list(
       rvest::html_elements(
-        rvest::read_html(xml_path,
-                         encoding = "UTF-8"),
-        "cpe-item")
-    ),
+        rvest::read_html(xml_path, encoding = "UTF-8"), "cpe-item")),
     function(x) data.frame(title = x$title[[1]][1],
                            cpe = attributes(x$`cpe23-item`)$name[1])
   )
@@ -124,7 +121,7 @@ parseCPExml <- function(xml_path = getLatestdata()) {
 #'
 #' @return data.frame
 #' @export
-cpe2wfn <- function(df_cpes = parseCPExml(), map = wfn.charmap()) {
+cpe2wfn <- function(df_cpes = parseCPExml(), map = wfn_charmap()) {
   df_cpes$cpe <- wfn_encode(df_cpes$cpe)
   df_cpes <- tidyr::separate(
     data = df_cpes,
@@ -137,6 +134,9 @@ cpe2wfn <- function(df_cpes = parseCPExml(), map = wfn.charmap()) {
 
   df_cpes <- as.data.frame(sapply(df_cpes, function(x) wfn_decode(x)))
 
+  df_cpes <- df_cpes[which(stringr::str_count(df_cpes$title, "\\?") <= 1), ]
+  df_cpes$title <- stringr::str_squish(df_cpes$title)
+
   return(df_cpes)
 }
 
@@ -147,15 +147,12 @@ cpe2wfn <- function(df_cpes = parseCPExml(), map = wfn.charmap()) {
 #'
 #' @return data.frame
 #' @export
-cpes_etl <- function(xml_path = getLatestdata(), map = wfn.charmap()) {
+cpes_etl <- function(xml_path = getLatestdata(), map = wfn_charmap()) {
   df_cpes <- tidyr::separate(
     data = plyr::ldply(
       xml2::as_list(
         rvest::html_elements(
-          rvest::read_html(xml_path,
-                           encoding = "UTF-8"),
-          "cpe-item")
-      ),
+          rvest::read_html(xml_path, encoding = "UTF-8"), "cpe-item")),
       function(x) {
         xtitle <- x$title[[1]][1]
         xcpe <- attributes(x$`cpe23-item`)$name[1]
@@ -211,7 +208,7 @@ cpeNERannotate <- function(cpes = cpes_etl(),
 
   if (vendor & product & version) {
     # Keep only titles with all entities
-    df_ner <- dplyr::select(dplyr::filter(df_ner, train_v & train_p & train_r),
+    df_ner <- dplyr::select(dplyr::filter(df_ner, .data$train_v & .data$train_p & .data$train_r),
                             -"train_v", -"train_p", -"train_r")
     # remove titles with equal vendor and product
     df_ner <- df_ner[which(df_ner$vendor != df_ner$product), ]
@@ -226,7 +223,7 @@ cpeNERannotate <- function(cpes = cpes_etl(),
 
   } else if (vendor & product & !version) {
     # Keep only titles with vendor and product entities
-    df_ner <- dplyr::select(dplyr::filter(df_ner, train_v & train_p),
+    df_ner <- dplyr::select(dplyr::filter(df_ner, .data$train_v & .data$train_p),
                             -"train_v", -"train_p", -"train_r")
     # remove titles with equal vendor and product
     df_ner <- df_ner[which(df_ner$vendor != df_ner$product), ]
@@ -241,7 +238,7 @@ cpeNERannotate <- function(cpes = cpes_etl(),
 
   } else if (vendor & !product & !version) {
     # Keep only titles with vendor entity
-    df_ner <- dplyr::select(dplyr::filter(df_ner, train_v),
+    df_ner <- dplyr::select(dplyr::filter(df_ner, .data$train_v),
                             -"train_v", -"train_p", -"train_r")
 
     # Add tags
@@ -254,7 +251,7 @@ cpeNERannotate <- function(cpes = cpes_etl(),
 
   } else if (!vendor & product & !version) {
     # Keep only titles with product entity
-    df_ner <- dplyr::select(dplyr::filter(df_ner, train_p),
+    df_ner <- dplyr::select(dplyr::filter(df_ner, .data$train_p),
                             -"train_v", -"train_p", -"train_r")
 
     # Add tags
@@ -272,4 +269,117 @@ cpeNERannotate <- function(cpes = cpes_etl(),
   df_ner <- dplyr::select(df_ner, "title", "cpe", "vendor", "product", "version", "annotated")
 
   return(df_ner)
+}
+
+
+#' Title
+#'
+#' @param df_cpes data.frame
+#' @param num_top numeric
+#'
+#' @return data.frame
+#' @export
+getTopVendors <- function(df_cpes = cpe2wfn(), num_top = 100) {
+  ents_vp <- df_cpes %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor, .data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_vend <- ents_vp %>%
+    dplyr::select("vendor", "product") %>%
+    dplyr::group_by(.data$vendor) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_vendor <- df_cpes %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  sample_vend <- ents_vend %>%
+    dplyr::bind_rows(ents_vendor) %>%
+    dplyr::group_by(.data$vendor) %>%
+    dplyr::summarise(num_rows = sum(.data$num_rows), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  if (num_top > 0) {
+    sample_vend <- sample_vend %>%
+      dplyr::slice_sample(n = num_top, weight_by = .data$num_rows)
+  }
+
+  sample_vend <- sample_vend %>% dplyr::select("vendor")
+
+  return(sample_vend)
+}
+
+#' Title
+#'
+#' @param df_cpes data.frame
+#' @param num_top numeric
+#'
+#' @return data.frame
+#' @export
+getTopProducts <- function(df_cpes = cpe2wfn(), num_top = 100) {
+  ents_vp <- df_cpes %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor, .data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_prod <- ents_vp %>%
+    dplyr::select("vendor", "product") %>%
+    dplyr::group_by(.data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  ents_product <- df_cpes %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  sample_prod <- ents_prod %>%
+    dplyr::bind_rows(ents_product) %>%
+    dplyr::group_by(.data$product) %>%
+    dplyr::summarise(num_rows = sum(.data$num_rows), .groups = "keep") %>%
+    dplyr::ungroup()
+
+  if (num_top > 0) {
+    sample_prod <- sample_prod %>%
+      dplyr::slice_sample(n = num_top, weight_by = .data$num_rows)
+  }
+
+  sample_prod <- sample_prod %>% dplyr::select("product")
+
+  return(sample_prod)
+}
+
+#' Title
+#'
+#' @param df data.frame
+#' @param num_samples numeric
+#' @param randomize logical
+#'
+#' @return data.frame
+#' @export
+getCPEsample <- function(df = cpe2wfn(), num_samples = 5000, randomize = FALSE) {
+  df_sample <- df %>%
+    dplyr::select("cpe", "vendor", "product") %>%
+    dplyr::group_by(.data$vendor, .data$product) %>%
+    dplyr::summarise(num_rows = dplyr::n(), .groups = "keep") %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(num_rows = round(abs(scale(.data$num_rows)[,1]), 4))
+  if (randomize) {
+    df_sample <- df_sample %>% dplyr::slice_sample(n = num_samples)
+  } else {
+    df_sample <- df_sample %>% dplyr::slice_sample(n = num_samples, weight_by = .data$num_rows)
+  }
+  df_train <- df %>%
+    dplyr::inner_join(df_sample, by = dplyr::join_by("vendor", "product")) %>%
+    dplyr::slice_sample(n = num_samples) %>%
+    dplyr::select(-"num_rows")
+
+  return(df_train)
 }
