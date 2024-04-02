@@ -18,6 +18,16 @@ getInventory <- function(){
 
     NewSWEntry <- function(name = "", version = "", vendor = ""){return(data.frame(name = name, version = version, vendor = vendor, stringsAsFactors = F))}
 
+    getInventoryTitle <- function(df = data.frame()) {
+      df$test <- mapply(grepl, pattern = df$version, x = df$name, fixed = TRUE)
+      df <- dplyr::mutate(df, title = dplyr::if_else(.data$test, paste(.data$vendor, .data$name), paste(.data$vendor, .data$name, .data$version)))
+      df <- dplyr::rename(df, "product" = "name")
+      df <- dplyr::select(df, "title", "vendor", "product", "version")
+      df$title <- trimws(tolower(df$title))
+
+      return(df)
+    }
+
     # SW1
     df.sw1 <- NewSWEntry()
     for (linia in sw1) {
@@ -103,6 +113,8 @@ getInventory <- function(){
 
     df.sw$name <- stringr::str_conv(df.sw$name, "UTF-8")
 
+    df.sw <- getInventoryTitle(df.sw)
+
     return(df.sw)
   }
 
@@ -122,3 +134,17 @@ getInventory <- function(){
   return(NA)
 }
 
+
+nerInventory <- function(df_ner = data.frame()) {
+  df_ner <- df_ner %>% replace(is.na(.), " ")
+  df_vend <- df_ner[ , stringr::str_detect(names(df_ner), "vendor")]
+  df_prod <- df_ner[ , stringr::str_detect(names(df_ner), "product")]
+  df_vers <- df_ner[ , stringr::str_detect(names(df_ner), "version")]
+
+  df_vend <- df_vend %>% mutate(all_vendor = ((ner_vendor_vpv == ner_vendor_vv) & (ner_vendor_vpv == ner_vendor_vp) & (ner_vendor_vpv == ner_vendor_vend)))
+  vendors <- character()
+  for (i in 1:nrow(df_vend)) {
+    vendors <- c(vendors, names(sort(table(as.character(df_vend[i,stringr::str_starts(names(df_vend), "ner_")])), decreasing = T)[1]))
+  }
+  df_vend$vendor <- vendors
+}

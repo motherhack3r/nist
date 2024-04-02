@@ -18,6 +18,7 @@ Imports:
     xml2,
     dplyr,
     stringr,
+    stringi,
     magrittr,
     rlang,
     entity,
