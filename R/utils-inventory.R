@@ -134,17 +134,136 @@ getInventory <- function(){
   return(NA)
 }
 
+inventory_to_ner <- function() {
 
-nerInventory <- function(df_ner = data.frame()) {
-  df_ner <- df_ner %>% replace(is.na(.), " ")
-  df_vend <- df_ner[ , stringr::str_detect(names(df_ner), "vendor")]
-  df_prod <- df_ner[ , stringr::str_detect(names(df_ner), "product")]
-  df_vers <- df_ner[ , stringr::str_detect(names(df_ner), "version")]
+}
 
-  df_vend <- df_vend %>% mutate(all_vendor = ((ner_vendor_vpv == ner_vendor_vv) & (ner_vendor_vpv == ner_vendor_vp) & (ner_vendor_vpv == ner_vendor_vend)))
-  vendors <- character()
-  for (i in 1:nrow(df_vend)) {
-    vendors <- c(vendors, names(sort(table(as.character(df_vend[i,stringr::str_starts(names(df_vend), "ner_")])), decreasing = T)[1]))
-  }
-  df_vend$vendor <- vendors
+ner_to_inventory <- function(df_ner = data.frame(), df_cpes = cpe2wfn()) {
+
+  # df_ner <- ner_inventory
+
+  # Load official vendors and products
+  cpe_vendors <- nist::getTopVendors(df_cpes, 0)
+  cpe_products <- nist::getTopProducts(df_cpes, 0)
+
+  # Use first column as id
+  names(df_ner)[1] <- "id"
+
+  # Replace NA with empty string
+  df_ner <- df_ner %>% replace(is.na(.), "")
+
+  # Split by CPE component
+  df_ner_vend <- df_ner[ , stringr::str_detect(names(df_ner), "(vendor|id)")]
+  df_ner_prod <- df_ner[ , stringr::str_detect(names(df_ner), "(product|id)")]
+  df_ner_vers <- df_ner[ , stringr::str_detect(names(df_ner), "(version|id)")]
+
+  ##############
+  # Find official vendors
+
+  #  - keep ner columns
+  df_vendors <- df_ner_vend[,stringr::str_starts(names(df_ner_vend), "(ner_|id)")]
+  #  - replace spaces with _
+  df_vendors <- data.frame(lapply(df_vendors, function(x) {gsub("\\s+", "_", x)}))
+  # Replacing "+" by "plus"
+  df_vendors <- data.frame(lapply(df_vendors, function(x) {stringr::str_replace_all(x, "_*\\+", "_plus")}))
+  # Replacing "r" or "r_core_team" by "r_project"
+  df_vendors <- data.frame(lapply(df_vendors, function(x) {stringr::str_replace_all(x, "^r$", "r_project")}))
+  df_vendors <- data.frame(lapply(df_vendors, function(x) {stringr::str_replace_all(x, "^r_core_team$", "r_project")}))
+  df_vendors$id <- as.numeric(df_vendors$id)
+  # - Find official candidates
+  t_vend_vpv <- dplyr::inner_join(df_vendors[, c("id", "ner_vendor_vpv")], cpe_vendors, by = c("ner_vendor_vpv" = "vendor"))
+  t_vend_vp <- dplyr::inner_join(df_vendors[, c("id", "ner_vendor_vp")], cpe_vendors, by = c("ner_vendor_vp" = "vendor"))
+  t_vend_vv <- dplyr::inner_join(df_vendors[, c("id", "ner_vendor_vv")], cpe_vendors, by = c("ner_vendor_vv" = "vendor"))
+  t_vend_vnd <- dplyr::inner_join(df_vendors[, c("id", "ner_vendor_vend")], cpe_vendors, by = c("ner_vendor_vend" = "vendor"))
+  vendors <- dplyr::full_join(t_vend_vpv, t_vend_vp, by = "id")
+  vendors <- dplyr::full_join(vendors, t_vend_vv, by = "id")
+  vendors <- dplyr::full_join(vendors, t_vend_vnd, by = "id")
+  # Cleansing: each row contains the official vendor or empty
+  vendors <- vendors %>%
+    rowwise() %>%
+    mutate(cpe_vendor = head(sort(unique(as.character(pick(where(is.character), -id)))), 1)) %>%
+    select("id", "cpe_vendor") %>%
+    ungroup()
+  vendors$cpe_vendor_score <- 1
+
+  vendors_ner <- df_ner_vend[!(df_ner_vend$id %in% vendors$id), ]
+  vendors_ner <- rbind((vendors_ner %>% select(id, ner_vendor_vpv, scr_vendor_vpv) %>% rename(cpe_vendor = ner_vendor_vpv, score = scr_vendor_vpv)),
+                       (vendors_ner %>% select(id, ner_vendor_vp, scr_vendor_vp) %>% rename(cpe_vendor = ner_vendor_vp, score = scr_vendor_vp)),
+                       (vendors_ner %>% select(id, ner_vendor_vv, scr_vendor_vv) %>% rename(cpe_vendor = ner_vendor_vv, score = scr_vendor_vv)),
+                       (vendors_ner %>% select(id, ner_vendor_vend, scr_vendor_vend) %>% rename(cpe_vendor = ner_vendor_vend, score = scr_vendor_vend))) %>%
+    filter(nchar(cpe_vendor) > 0) %>%
+    group_by(id, cpe_vendor) %>%
+    summarise(score = mean(score)) %>%
+    ungroup() %>%
+    arrange(id) %>%
+    group_by(id) %>%
+    filter(score == max(score)) %>%
+    ungroup() %>%
+    arrange(id) %>%
+    rename(cpe_vendor_score = score)
+  #  - replace spaces with _
+  vendors_ner <- data.frame(lapply(vendors_ner, function(x) {gsub("\\s+", "_", x)}))
+
+  df_cpe_vend <- rbind(vendors, vendors_ner) %>% arrange(id)
+  df_cpe_vend$id <- as.numeric(df_cpe_vend$id)
+
+  df_ner_cpe <- dplyr::left_join(df_ner, df_cpe_vend, by = "id") %>% ungroup()
+
+
+  ##############
+  # Find official products
+  #
+  #  - keep ner columns
+  df_products <- df_ner_prod[,stringr::str_starts(names(df_ner_prod), "(ner_|id)")]
+  #  - replace spaces with _
+  df_products <- data.frame(lapply(df_products, function(x) {gsub("\\s+", "_", x)}))
+  # # Replacing "+" by "plus"
+  # df_vendors <- data.frame(lapply(df_vendors, function(x) {stringr::str_replace_all(x, "_*\\+", "_plus")}))
+  # # Replacing "r" or "r_core_team" by "r_project"
+  # df_vendors <- data.frame(lapply(df_vendors, function(x) {stringr::str_replace_all(x, "^r$", "r_project")}))
+  # df_vendors <- data.frame(lapply(df_vendors, function(x) {stringr::str_replace_all(x, "^r_core_team$", "r_project")}))
+  df_products$id <- as.numeric(df_products$id)
+  # - Find official candidates
+  t_prod_vpv <- dplyr::inner_join(df_products[, c("id", "ner_product_vpv")], cpe_products, by = c("ner_product_vpv" = "product"))
+  t_prod_vp <- dplyr::inner_join(df_products[, c("id", "ner_product_vp")], cpe_products, by = c("ner_product_vp" = "product"))
+  t_prod_pv <- dplyr::inner_join(df_products[, c("id", "ner_product_pv")], cpe_products, by = c("ner_product_pv" = "product"))
+  t_prod_prd <- dplyr::inner_join(df_products[, c("id", "ner_product_prod")], cpe_products, by = c("ner_product_prod" = "product"))
+  products <- dplyr::full_join(t_prod_vpv, t_prod_vp, by = "id")
+  products <- dplyr::full_join(products, t_prod_pv, by = "id")
+  products <- dplyr::full_join(products, t_prod_prd, by = "id")
+  # Cleansing: each row contains the official vendor or empty
+  products <- products %>%
+    rowwise() %>%
+    mutate(cpe_product = head(sort(unique(as.character(pick(where(is.character), -id)))), 1)) %>%
+    select("id", "cpe_product") %>%
+    ungroup()
+  products$cpe_product_score <- 1
+
+  products_ner <- df_ner_prod[!(df_ner_prod$id %in% products$id), ]
+  products_ner <- rbind((products_ner %>% select(id, ner_product_vpv, scr_product_vpv) %>% rename(cpe_product = ner_product_vpv, score = scr_product_vpv)),
+                       (products_ner %>% select(id, ner_product_vp, scr_product_vp) %>% rename(cpe_product = ner_product_vp, score = scr_product_vp)),
+                       (products_ner %>% select(id, ner_product_pv, scr_product_pv) %>% rename(cpe_product = ner_product_pv, score = scr_product_pv)),
+                       (products_ner %>% select(id, ner_product_prod, scr_product_prod) %>% rename(cpe_product = ner_product_prod, score = scr_product_prod))) %>%
+    filter(nchar(cpe_product) > 0) %>%
+    group_by(id, cpe_product) %>%
+    summarise(score = mean(score)) %>%
+    ungroup() %>%
+    arrange(id) %>%
+    group_by(id) %>%
+    filter(score == max(score)) %>%
+    ungroup() %>%
+    arrange(id) %>%
+    rename(cpe_product_score = score)
+  #  - replace spaces with _
+  products_ner <- data.frame(lapply(products_ner, function(x) {gsub("\\s+", "_", x)}))
+
+  df_cpe_prod <- rbind(products, products_ner) %>% arrange(id)
+  df_cpe_prod$id <- as.numeric(df_cpe_prod$id)
+
+  df_ner_cpe <- dplyr::left_join(df_ner_cpe, df_cpe_prod, by = "id") %>% ungroup()
+
+  # Find official versions
+
+
+  return(df_ner_cpe)
 }
