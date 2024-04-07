@@ -1,6 +1,6 @@
 Package: nist
 Title: What the Package Does (One Line, Title Case)
-Version: 0.0.2
+Version: 0.0.2.9003
 Authors@R: 
     person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
@@ -19,6 +19,7 @@ Imports:
     dplyr,
     stringr,
     stringi,
+    textclean,
     magrittr,
     rlang,
     entity,
