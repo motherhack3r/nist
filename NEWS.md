@@ -1,4 +1,4 @@
-# nist (version 0.0.0.9001)
+# nist (version 0.0.2.9001)
 
 * Added code for minimal Rpackage
 * CRAN checks ok

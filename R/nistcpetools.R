@@ -423,3 +423,206 @@ getCPEsample <- function(df = cpe2wfn(), num_samples = 5000, randomize = FALSE) 
   return(df_train)
 }
 
+#' Title
+#'
+#' @param x character
+#'
+#' @return character
+cpe_wfn_vendor <- function(x = "Microsoft Corporation") {
+  # Remove (c) (tm) (r)
+  x <- stringr::str_replace_all(x, "(?i)\\([c|tm|r]\\)", "")
+  x <- stringr::str_replace_all(x, "\\u00AE", "")
+  x <- stringr::str_replace_all(x, "\\u00A9", "")
+
+  # Normalize vendor: First apply translit, then remove bad words and HTML entities
+  x <- iconv(x, to = 'ASCII//TRANSLIT', sub = "")
+
+  # CUSTOM MODIFICATORS
+  # R Core Team --> r_project
+  x <- stringr::str_replace_all(x, "(?i)R Core Team", "r_project")
+  # The R Foundation --> r_foundation
+  x <- stringr::str_replace_all(x, "(?i)The R Foundation", "r_foundation")
+
+  # If starts with (, remove parenthesis and keep text until end or )
+  x <- stringr::str_replace_all(x, "(?i)^\\(([^\\)]+)\\){0,1}", "\\1")
+  # Extract text inside parenthesis
+  x <- stringr::str_replace_all(x, "\\(([^\\)]+)\\)", "")
+  # Remove any combination of development|core and team|company, separated by space, comma or -
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,|-)*(development|core){0,1}(\\s|,|-)*(team|company){0,1}$", " ")
+  x <- stringr::str_trim(x)
+  # Remove any text equal or equivalent to: corporation, incorporated, international, etc.
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+(co|corp|corporation|corporations|ltd|llc|cc|inc|incorporated|company|international)\\.{0,1}$", "")
+  # Extract word software or soft
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+(software|soft)(\\s|,){0,1}", " ")
+  x <- stringr::str_trim(x)
+  # Remove S.A. and S.L. variants
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+s\\.(a|l)\\.(\\s|\\,){0,1}", " ")
+  x <- stringr::str_trim(x)
+  # Remove L.P. variants
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+l\\.p\\.(\\s|,){0,1}", " ")
+  x <- stringr::str_trim(x)
+  # Remove word foundation
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+foundation(\\s|,){0,1}", " ")
+  x <- stringr::str_trim(x)
+  # Remove word systems
+  # x <- stringr::str_replace_all(x, "(?i)(\\s|,)+systems(\\s|,){0,1}", " ")
+  # x <- stringr::str_trim(x)
+  # Remove word technologies
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+technologies(\\s|,){0,1}", " ")
+  x <- stringr::str_trim(x)
+  # Remove word limited
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+limited(\\s|,){0,1}", " ")
+  x <- stringr::str_trim(x)
+  # Remove words with only numbers or -
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+[\\d\\-]+(\\s)*", " ")
+  x <- stringr::str_trim(x)
+  # Again remove any combination of development|core and team|company, separated by space, comma or -
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,|-)*(development|core){0,1}(\\s|,|-)*(team|company){0,1}$", " ")
+  x <- stringr::str_trim(x)
+  # Again remove any text equal or equivalent to: corporation, incorporated, international, etc.
+  x <- stringr::str_replace_all(x, "(?i)(\\s|,)+(co|corp|corporation|corporations|ltd|llc|cc|inc|incorporated|company|international)\\.{0,1}$", "")
+  x <- stringr::str_trim(x)
+  # Extract text inside HTML tags
+  x <- sapply(x, function(y) xml2::xml_text(xml2::read_html(paste0("<x>",y,"</x>"))))
+
+  x <- stringr::str_replace_all(x, "^[^a-zA-Z0-9]+$", "")
+  x <- stringr::str_replace_all(x, "^[^a-zA-Z0-9]+\\s([a-zA-Z0-9].+)$", "\\1")
+  # Extract text inside ${}
+  x <- stringr::str_replace_all(x, "^\\${0,1}\\{(.+)\\}$", "")
+  # Extract text between $
+  x <- stringr::str_replace_all(x, "^\\$(.+)\\$$", "")
+  # Remove ()
+  x <- stringr::str_replace_all(x, "\\(\\)", "")
+  # Text finishing with () --> remove ()
+  x <- stringr::str_replace_all(x, "\\(([^\\)]+)$", "")
+  # Remove []
+  x <- stringr::str_replace_all(x, "\\[\\]", "")
+  # Extract text between '' or ""
+  x <- stringr::str_replace_all(x, "^'([^']+)'$", "\\1")
+  x <- stringr::str_replace_all(x, "^\"([^']+)\"$", "\\1")
+
+  # Errors from SCCM query
+  x <- stringr::str_replace_all(x, "(?i)CFullName", "")
+
+  # CUSTOM MODIFICATORS
+  # sap_xx --> sap
+  x <- stringr::str_replace_all(x, "(?i)sap_[a-z]{2}", "sap")
+  # Advanced Micro Devices --> AMD
+  x <- stringr::str_replace_all(x, "(?i)Advanced Micro Devices", "AMD")
+  # ASUSTek Computer --> ASUSTEK
+  x <- stringr::str_replace_all(x, "(?i)ASUSTek(\\s|\\.)*Computer(\\s|\\.)*(inc){0,1}", "ASUSTEK")
+  # Hewlett-Packard --> hp
+  x <- stringr::str_replace_all(x, "(?i)Hewlett(\\s|\\.|\\-)*Packard(\\s|\\.|\\-)*", "HP ")
+  # Internet Testing Systems --> ITS
+  x <- stringr::str_replace_all(x, "(?i)Internet Testing Systems", "ITS")
+  # Amazon Web Services --> Amazon
+  x <- stringr::str_replace_all(x, "(?i)Amazon Web Services", "Amazon")
+  # Adobe Systems Incorporated (+variations)--> Adobe
+  x <- stringr::str_replace_all(x, "(?i)Adobe([[:punct:]]|\\s)*(System|s)*([[:punct:]]|\\s|\\t)*(Inc)*([[:punct:]]|\\s)*(orporated){0,1}([[:punct:]]|\\s)*(Company)*", "Adobe")
+
+  x <- stringr::str_replace_all(x, "(?i)(\\s)+S\\.(A|p)\\.(S|a)\\.(\\s|$)", " ")
+  x <- stringr::str_trim(x)
+
+  x[x == "NA"] <- NA
+  x[is.na(x)] <- ""
+
+  return(x)
+}
+
+#' Title
+#'
+#' @param x character
+#'
+#' @return character
+cpe_wfn_product <- function(x = "Oracle VM VirtualBox 6.1.34") {
+  x <- stringr::str_replace_all(x, "\\u00AE", "")
+  x <- stringr::str_replace_all(x, "\\u00A9", "")
+  x <- iconv(x, to = 'ASCII//TRANSLIT')
+  x <- stringr::str_replace_all(x, "\\(.*$", "")
+  x <- stringr::str_trim(x)
+  x <- stringr::str_replace_all(x, "(\\s|,|-)+v*(\\d+\\.{0,1})+\\.{0,1}\\d*$", "")
+  x <- stringr::str_replace_all(x, "\\s", "_")
+  x <- stringr::str_replace_all(x, "_\\-_.*$", "")
+  x <- stringr::str_replace_all(x, "_\\d+\\.\\d+.*$", "")
+  x <- stringr::str_replace_all(x, "(?i)_{0,1}(x|amd)(32|64|86).*$", "")
+  x <- stringr::str_replace_all(x, "(?i)_for_.*$", "")
+  x <- stringr::str_replace_all(x, "\\(\\)", "")
+  x <- stringr::str_replace_all(x, "\\(([^\\)]+)\\)", "")
+  x <- stringr::str_replace_all(x, "\\(([^\\)]+)$", "")
+  x <- stringr::str_replace_all(x, "(?i)\\(r\\)", "")
+  x <- stringr::str_replace_all(x, "(?i)\\(tm\\)", "")
+  x <- stringr::str_replace_all(x, "(?i)\\(c\\)", "")
+  x <- stringr::str_replace_all(x, "_", " ")
+  x <- stringr::str_replace_all(x, "(?i)\\([c|tm|r]\\)", "")
+  x <- stringr::str_replace_all(x, "(?i)^\\(([^\\)]+)\\)", "\\1")
+  x <- stringr::str_trim(x)
+
+  return(x)
+}
+
+#' Encode strings to only 73 accepted characters for custom WFN.
+#'   - Replace accents, dieresis, etc to simple ASCII chars
+#'   - Replace tabs with spaces
+#'   - Deal with valid escaped symbols
+#'   - Replace not valid characters with "*"
+#'
+#' @param name character vector with CPE names
+#' @param na_replace character, no valid chars will be replaced with "*" by default
+#'
+#' @return character
+str73enc <- function(name = character(), na_replace = "*") {
+  encname <- iconv(name, to = 'ASCII//TRANSLIT', sub = na_replace)
+
+  # valid_dec_chars <- dec_valid_chars("input")
+  # valid_chars <- sapply(valid_dec_chars, DescTools::AscToChar)
+  valid_chars <- " !&()+,-./0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  regex_notvalid <- stringr::fixed(paste0("[^", paste0(valid_chars, collapse = ""), "]"))
+
+  # Deal with tabs `\t`
+  selected_rows <- stringr::str_detect(encname, "[\\x09]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "^[\\x09]", "")
+  selected_rows <- stringr::str_detect(encname, "[\\x09]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "\\s[\\x09]", " ")
+  selected_rows <- stringr::str_detect(encname, "[\\x09]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x09]", " ")
+  selected_rows <- stringr::str_detect(encname, "[\\x09]")
+
+  # Deal with `escaped and accepted symbols`
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\-", "-")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\!", "!")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\&", "&")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\(", "(")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\)", ")")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\,", ",")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\.", ".")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\/", "/")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\:", ":")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\_", "_")
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5c]\\+", "+")
+
+  # Finally, replace all escaped
+  selected_rows <- stringr::str_detect(encname, "[\\x5c]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows],
+                                                     paste0("[\\x5c]+(", regex_notvalid, ")"), "\\1")
+
+  # Replace underscore with spaces
+  selected_rows <- stringr::str_detect(encname, "[\\x5f]")
+  encname[selected_rows] <- stringr::str_replace_all(encname[selected_rows], "[\\x5f]", " ")
+
+  # Remove not valid characters
+  encname <- stringi::stri_replace_all_regex(encname, regex_notvalid, na_replace)
+
+  return(encname)
+}
+
