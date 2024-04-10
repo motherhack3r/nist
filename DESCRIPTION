@@ -1,10 +1,10 @@
 Package: nist
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.2.9004
+Title: Cybersecurity Standards Tools
+Version: 0.0.2.9006
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    person("Humbert", "Costas", , "Humbert.Costas@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "MOTHER-HACK-3R"))
+Description: Toolkit for analyze standards like CPE (Common Platform Enumeration), CVE, CWE and others.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -22,6 +22,4 @@ Imports:
     textclean,
     magrittr,
     rlang,
-    entity,
-    keras,
-    OpenRepGrid
+    text

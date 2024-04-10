@@ -4,12 +4,12 @@
 \name{nist-package}
 \alias{nist}
 \alias{nist-package}
-\title{nist: What the Package Does (One Line, Title Case)}
+\title{nist: Cybersecurity Standards Tools}
 \description{
-What the package does (one paragraph).
+Toolkit for analyze standards like CPE (Common Platform Enumeration), CVE, CWE and others.
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Humbert Costas \email{Humbert.Costas@gmail.com} (\href{https://orcid.org/MOTHER-HACK-3R}{ORCID})
 
 }
 \keyword{internal}

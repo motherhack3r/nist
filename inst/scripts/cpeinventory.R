@@ -17,15 +17,36 @@ df_inventory$title <- tolower(df_inventory$title)
 write.csv(df_inventory, "data-raw/winventory.csv", fileEncoding = "UTF-8")
 
 # RUN INFERENCE WITH NER MODELS
+text::textrpp_initialize(condaenv = "rgpu", save_profile = TRUE)
+dfi_vpv <- nist::predict_cpe(df_ner_out, model_name = "Neurona/cpegen_vpv")
+dfi_vp <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vp")
+dfi_pv <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_pv")
+dfi_vv <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vv")
+dfi_vend <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vend")
+dfi_prod <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_prod")
+dfi_vers <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vers")
+
+# dfi_vpv <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vpv")
+# dfi_vp <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vp")
+# dfi_pv <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_pv")
+# dfi_vv <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vv")
+# dfi_vend <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vend")
+# dfi_prod <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_prod")
+# dfi_vers <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vers")
+
 # - output: ner_inventory.csv
 df_ner_out <- read.csv("data-raw/ner_inventory.csv")
 names(df_ner_out)[1] <- "id"
 df_ner_out$id <- df_ner_out$id + 1
 df_ner <- nist::ner_to_inventory(df_ner_out, df_cpes)
 
-df_final <- nist::clean_invetory_cpe(df_inventory, df_ner)
+df_ner <- nist::clean_invetory_cpe(df_inventory, df_ner)
 
-
+df_final <- df_ner %>%
+  separate(col = cpe , sep = ":", extra = "merge",
+           into = c("std", "v", "part", "vendor", "product", "version", "tail")) %>%
+  select("id", "vendor", "product", "version") %>%
+  mutate(cpelite = paste0(":", paste(vendor, product, sep = ":"), ":"))
 
 
 

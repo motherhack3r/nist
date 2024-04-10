@@ -12,6 +12,7 @@
 #' @importFrom dplyr mutate
 #' @importFrom dplyr rename
 #' @importFrom dplyr select
+#' @importFrom dplyr left_join
 #' @importFrom dplyr summarise
 #' @importFrom dplyr ungroup
 #' @importFrom dplyr pick
@@ -19,5 +20,6 @@
 #' @importFrom dplyr across
 #' @importFrom dplyr everything
 #' @importFrom tidyr replace_na
+#' @importFrom tidyr separate
 ## usethis namespace: end
 NULL

@@ -1,3 +1,88 @@
+#' Create a CPE for each inventory item.
+#'
+#' @param df_inventory data.frame with columns: vendor, name and version; title is optional
+#' @param model_name huggingface reference, by default: Neurona/cpener-test
+#'
+#' @return data.frame
+#' @export
+predict_cpe <- function(df_inventory = getInventory(),
+                        model_name = "Neurona/cpener-test") {
+
+  # Function for processing NER output
+  embed2cpener <- function(df_ner = data.frame()) {
+    df_cpe <- as.data.frame(df_ner$x_NER)
+    df_cpe$entity <- stringr::str_replace_all(string = df_cpe$entity,
+                                              pattern = "^[BIOLU]\\-(.+)$",
+                                              replacement = "\\1")
+    df_cpe <- dplyr::inner_join(x = df_cpe %>%
+                                  group_by(.data$entity) %>%
+                                  summarise(score = mean(.data$score)),
+                                y = df_cpe %>%
+                                  select(.data$entity, .data$word) %>%
+                                  group_by(.data$entity) %>%
+                                  mutate(word = paste(.data$word, collapse = " ")) %>%
+                                  unique() %>%
+                                  as.data.frame(),
+                                by = "entity")
+    df_cpe$word <- stringr::str_replace_all(string = df_cpe$word, pattern = "\\s##", replacement = "")
+    df_cpe$word <- stringr::str_replace_all(string = df_cpe$word, pattern = "^\\s*##", replacement = "")
+    df_cpe$word[df_cpe$entity == "version"] <-
+      stringr::str_replace_all(df_cpe$word[df_cpe$entity == "version"], " \\. ", ".")
+    return(df_cpe)
+  }
+
+  # Function for CPE creation
+  cpener2cpe23 <- function(df_ner = data.frame()) {
+    part <- "a"
+    vendor <- ifelse(test = "vendor" %in% df_ner$entity,
+                     yes = df_ner$word[df_ner$entity == "vendor"],
+                     no = "*")
+    product <- ifelse(test = "product" %in% df_ner$entity,
+                      yes = df_ner$word[df_ner$entity == "product"],
+                      no = "*")
+    version <- ifelse(test = "version" %in% df_ner$entity,
+                      yes = df_ner$word[df_ner$entity == "version"],
+                      no = "*")
+    vendor <- stringr::str_replace_all(vendor, " ", "_")
+    product <- stringr::str_replace_all(product, " ", "_")
+    version <- stringr::str_replace_all(version, "(\\d) (\\d)", "\\1\\.\\2")
+    version <- stringr::str_replace_all(version, "(\\d) (\\d)", "\\1\\.\\2")
+    # version <- stringr::str_replace_all(version, " \\. ", ".")
+    if (vendor == "*") vendor <- product
+    if (product == "*") product <- vendor
+
+    cpe <- mean(df_ner$score)
+    names(cpe) <- stringr::str_replace_all(paste("cpe", "2.3",
+                                                 part, vendor, product, version,
+                                                 "*:*:*:*:*:*:*", sep = ":"),
+                                           "_([[:punct:]])_", "\\1")
+    return(cpe)
+  }
+
+  if (!("title" %in% names(df_inventory))) {
+    sw_title <- paste(cpe_wfn_vendor(df_inventory$vendor),
+                      cpe_wfn_product(df_inventory$name), sep = " ")
+    df_pred <- data.frame(title = sapply(sw_title, function(x) paste(unique(unlist(strsplit(x, " "))), collapse = " ")),
+                          cpe = rep(NA, length(sw_title)))
+    df_pred$title <- paste0(stringr::str_trim(paste(df_pred$title, df_inventory$version)),".")
+  } else {
+    df_pred <- df_inventory
+  }
+
+  predicted_cpes <- sapply(df_pred$title,
+                           function(x)
+                             cpener2cpe23(embed2cpener(text::textNER(x = x,
+                                                                     model = model_name,
+                                                                     device = "gpu",
+                                                                     logging_level = "critical"))),
+                           USE.NAMES = F)
+  df_inventory$ner_cpe <- names(predicted_cpes)
+  df_inventory$ner_score <- as.numeric(predicted_cpes)
+
+  return(df_inventory)
+}
+
+
 #' Return data.frame with installed software name, version and vendor.
 #' Set predict_cpes as TRUE to predict CPEs using ML.
 #' Set predict_cves as TRUE to predict CPEs and its vulnerabilities as CVEs
@@ -216,12 +301,12 @@ getInventory <- function(include_libs = FALSE, verbose = FALSE, predict_cpes = F
   #                                 filter(cpe_score > 0.5) %>%
   #                                 separate(col = cpe , sep = ":", extra = "merge",
   #                                          into = c("std", "v", "part", "vendor", "product", "version", "tail")) %>%
-  #                                 select(id, vendor, product, version, vendor, product, version) %>%
+  #                                 select("id", "vendor", "product", "version") %>%
   #                                 mutate(cpelite = paste0(":", paste(vendor, product, sep = ":"), ":")) %>%
-  #                                 select(id, cpelite, version) %>%
+  #                                 select("id", "cpelite", "version") %>%
   #                                 rowwise() %>%
   #                                 mutate(cves = cpelite_vulnerable_configs(x = cpelite, x_vers = version, verbose = verbose)) %>%
-  #                                 ungroup() %>% select(id, cves),
+  #                                 ungroup() %>% select("id", "cves"),
   #                               by = "id")
   #   }
   # }
