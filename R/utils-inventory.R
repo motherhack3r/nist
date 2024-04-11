@@ -20,8 +20,10 @@ predict_cpe <- function(df_inventory = getInventory(),
         df_cpe$entity <- stringr::str_replace_all(string = df_cpe$entity,
                                                   pattern = "^[BIOLU]\\-(.+)$",
                                                   replacement = "\\1"),
-        finally = {
-          print("[!] empty!!")
+        error = function(e) {
+          print("[!] ERROR: empty data...")
+          print(e)
+          print("[.]")
           return(data.frame(entity = "-", score = 0))
         }
       )
@@ -39,8 +41,8 @@ predict_cpe <- function(df_inventory = getInventory(),
                                 by = "entity")
     df_cpe$word <- stringr::str_replace_all(string = df_cpe$word, pattern = "\\s##", replacement = "")
     df_cpe$word <- stringr::str_replace_all(string = df_cpe$word, pattern = "^\\s*##", replacement = "")
-    df_cpe$word[df_cpe$entity == "version"] <-
-      stringr::str_replace_all(df_cpe$word[df_cpe$entity == "version"], " \\. ", ".")
+    df_cpe$word[stringr::str_detect(df_cpe$entity, "version")] <-
+      stringr::str_replace_all(df_cpe$word[stringr::str_detect(df_cpe$entity, "version")], " \\. ", ".")
     return(df_cpe)
   }
 
