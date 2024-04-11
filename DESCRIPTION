@@ -1,6 +1,6 @@
 Package: nist
 Title: Cybersecurity Standards Tools
-Version: 0.0.2.9006
+Version: 0.0.2.9010
 Authors@R: 
     person("Humbert", "Costas", , "Humbert.Costas@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "MOTHER-HACK-3R"))

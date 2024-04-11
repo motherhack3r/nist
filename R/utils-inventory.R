@@ -2,23 +2,36 @@
 #'
 #' @param df_inventory data.frame with columns: vendor, name and version; title is optional
 #' @param model_name huggingface reference, by default: Neurona/cpener-test
+#' @param device name of device: 'cpu', 'gpu', 'cuda', 'mps', or of the form 'gpu:k', 'cuda:k', or 'mps:0'
 #'
 #' @return data.frame
 #' @export
 predict_cpe <- function(df_inventory = getInventory(),
-                        model_name = "Neurona/cpener-test") {
+                        model_name = "Neurona/cpener-test", device = "cpu") {
 
   # Function for processing NER output
   embed2cpener <- function(df_ner = data.frame()) {
     df_cpe <- as.data.frame(df_ner$x_NER)
-    df_cpe$entity <- stringr::str_replace_all(string = df_cpe$entity,
-                                              pattern = "^[BIOLU]\\-(.+)$",
-                                              replacement = "\\1")
+    if ("entity_group" %in% names(df_cpe)) {
+      df_cpe$entity <- df_cpe$entity_group
+      df_cpe$entity_group <- NULL
+    } else {
+      tryCatch(
+        df_cpe$entity <- stringr::str_replace_all(string = df_cpe$entity,
+                                                  pattern = "^[BIOLU]\\-(.+)$",
+                                                  replacement = "\\1"),
+        finally = {
+          print("[!] empty!!")
+          return(data.frame(entity = "-", score = 0))
+        }
+      )
+
+    }
     df_cpe <- dplyr::inner_join(x = df_cpe %>%
                                   group_by(.data$entity) %>%
                                   summarise(score = mean(.data$score)),
                                 y = df_cpe %>%
-                                  select(.data$entity, .data$word) %>%
+                                  select("entity", "word") %>%
                                   group_by(.data$entity) %>%
                                   mutate(word = paste(.data$word, collapse = " ")) %>%
                                   unique() %>%
@@ -73,7 +86,7 @@ predict_cpe <- function(df_inventory = getInventory(),
                            function(x)
                              cpener2cpe23(embed2cpener(text::textNER(x = x,
                                                                      model = model_name,
-                                                                     device = "gpu",
+                                                                     device = device,
                                                                      logging_level = "critical"))),
                            USE.NAMES = F)
   df_inventory$ner_cpe <- names(predicted_cpes)
@@ -291,7 +304,11 @@ getInventory <- function(include_libs = FALSE, verbose = FALSE, predict_cpes = F
          })
   df_inventory <- cpe_make_title(df_inventory = df_inventory, verbose = verbose) %>%
     arrange("title")
+  df_inventory <- dplyr::distinct(df_inventory)
   df_inventory$id <- 1:nrow(df_inventory)
+  df_inventory$name <- df_inventory$title
+  df_inventory$title <- tolower(df_inventory$title)
+  df_inventory <- df_inventory %>% select("id", "name", "title", "vendor", "product", "version")
 
   # if (predict_cpes) {
   #   df_inventory <- cpe_generate(df_inventory = df_inventory, verbose = verbose)

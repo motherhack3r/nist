@@ -9,22 +9,18 @@ set.seed(seed)
 
 # LOAD INPUT DATA
 df_cpes <- readRDS("data-raw/df_cpes_extra.rds")
-df_raw_inventory <- nist::getInventory()
-write.csv(df_raw_inventory, "data-raw/winventory_cased.csv", fileEncoding = "UTF-8")
-df_inventory <- df_raw_inventory
-df_inventory$software <- df_inventory$title
-df_inventory$title <- tolower(df_inventory$title)
+df_inventory <- nist::getInventory()
 write.csv(df_inventory, "data-raw/winventory.csv", fileEncoding = "UTF-8")
 
 # RUN INFERENCE WITH NER MODELS
 text::textrpp_initialize(condaenv = "rgpu", save_profile = TRUE)
-dfi_vpv <- nist::predict_cpe(df_ner_out, model_name = "Neurona/cpegen_vpv")
-dfi_vp <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vp")
-dfi_pv <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_pv")
-dfi_vv <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vv")
-dfi_vend <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vend")
-dfi_prod <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_prod")
-dfi_vers <- nist::predict_cpe(df_ner_out, model_name="Neurona/cpegen_vers")
+dfi_vpv <- nist::predict_cpe(df_inventory, model_name = "Neurona/cpegen_vpv", device = "gpu")
+dfi_vp <- nist::predict_cpe(df_inventory, model_name="Neurona/cpegen_vp")
+dfi_pv <- nist::predict_cpe(df_inventory, model_name="Neurona/cpegen_pv")
+dfi_vv <- nist::predict_cpe(df_inventory, model_name="Neurona/cpegen_vv")
+dfi_vend <- nist::predict_cpe(df_inventory, model_name="Neurona/cpegen_vend")
+dfi_prod <- nist::predict_cpe(df_inventory, model_name="Neurona/cpegen_prod")
+dfi_vers <- nist::predict_cpe(df_inventory, model_name="Neurona/cpegen_vers")
 
 # dfi_vpv <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vpv")
 # dfi_vp <- text::textNER("adobe reader dc 9.5", model="Neurona/cpegen_vp")
